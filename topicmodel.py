@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["httpx>=0.27", "pandas", "numpy", "scikit-learn", "tiktoken", "tqdm"]
+# dependencies = ["httpx>=0.27", "pandas", "numpy", "igraph", "leidenalg", "tiktoken", "tqdm"]
 # ///
 """Cluster documents or match them to topics using OpenAI embeddings."""
 
@@ -17,10 +17,11 @@ import sys
 from pathlib import Path
 
 import httpx
+import igraph as ig
+import leidenalg
 import numpy as np
 import pandas as pd
 import tiktoken
-from sklearn.cluster import KMeans
 from tqdm import tqdm
 
 # cache embeddings in a shared SQLite database
@@ -189,20 +190,37 @@ async def cluster(args: argparse.Namespace, fmt: str, out: io.TextIOBase) -> Non
     df, key = load_data(args.docs)
     docs = df[key].astype(str).tolist()
     emb = await embed(docs, args.model)
-    km = KMeans(args.ntopics, n_init="auto", random_state=0).fit(emb)
+    norms = np.linalg.norm(emb, axis=1, keepdims=True)
+    normed = emb / np.clip(norms, 1e-12, None)
+    sim = normed @ normed.T
+    np.fill_diagonal(sim, 0)
+    tri = np.triu_indices_from(sim, k=1)
+    mask = sim[tri] > 0
+    edges = list(zip(tri[0][mask], tri[1][mask]))
+    g = ig.Graph(n=len(docs), edges=edges, directed=False)
+    if edges:
+        g.es["weight"] = sim[tri][mask].tolist()
+    partition = leidenalg.find_partition(
+        g,
+        leidenalg.RBConfigurationVertexPartition,
+        weights="weight" if edges else None,
+        resolution_parameter=args.ntopics / max(len(docs), 1),
+    )
+    labels = np.array(partition.membership)
+    ntopics = int(labels.max() + 1) if labels.size else 0
     samples = [
         {
             "id": i,
             "docs": [
                 t[: args.truncate]
-                for t in np.array(docs)[km.labels_ == i][: args.nsamples].tolist()
+                for t in np.array(docs)[labels == i][: args.nsamples].tolist()
             ],
         }
-        for i in range(args.ntopics)
+        for i in range(ntopics)
     ]
     system = f'{args.prompt}\nReturn JSON {{"topics": [{{"id": integer, "topic": string}}]}}'
     names = json.loads(await chat(args.name_model, system, json.dumps(samples))).get("topics", [])
-    names = sorted(names, key=lambda d: d.get("id", 0))[: args.ntopics]
+    names = sorted(names, key=lambda d: d.get("id", 0))[: ntopics]
     topics = [n.get("topic", f"Topic {i + 1}") for i, n in enumerate(names)]
     for i, name in enumerate(topics, 1):
         print(f"{i}: {name}")
