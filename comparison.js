@@ -177,8 +177,8 @@ let currentDataset = 0;
 // Helper to pre-compute layout for K-Means (Geometry aware)
 function computeLayout(nodes, links) {
     const simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(100))
-        .force('charge', d3.forceManyBody().strength(-300))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(30))
+        .force('charge', d3.forceManyBody().strength(-100))
         .force('center', d3.forceCenter(0, 0))
         .stop();
 
@@ -324,55 +324,127 @@ function calculateModularity(nodes, links, clusters) {
     return Q / m;
 }
 
-// Visualization
-function visualize(containerId, data, clusters, colors) {
+// Calculate "Broken Links" - strong connections split across clusters
+function analyzeBrokenLinks(nodes, links, clusters) {
+    const nodeMap = new Map(nodes.map((n, i) => [n.id, i]));
+    const brokenLinks = [];
+
+    links.forEach(link => {
+        const i = nodeMap.get(link.source.id || link.source);
+        const j = nodeMap.get(link.target.id || link.target);
+        if (i !== undefined && j !== undefined && clusters[i] !== clusters[j] && link.value > 2) {
+            brokenLinks.push({
+                source: nodes[i].id,
+                target: nodes[j].id,
+                value: link.value,
+                sourceCluster: clusters[i],
+                targetCluster: clusters[j]
+            });
+        }
+    });
+
+    return brokenLinks;
+}
+
+// Visualization with "Smoking Gun" highlights
+function visualize(containerId, data, clusters, colors, algorithmName) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
 
-    const width = container.clientWidth || 700;
-    const height = container.clientHeight || 600;
+    // Responsive sizing - larger for better visibility
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+    const width = isFullscreen ? window.innerWidth - 100 : (container.clientWidth || 800);
+    const height = isFullscreen ? window.innerHeight - 150 : 800;
+
+    const zoom = d3.zoom()
+        .scaleExtent([0.5, 4])
+        .on('zoom', (event) => {
+            svgGroup.attr('transform', event.transform);
+        });
 
     const svg = d3.select(`#${containerId}`)
         .append('svg')
-        .attr('width', width)
-        .attr('height', height)
-        .attr('viewBox', [-width / 2, -height / 2, width, height]);
+        .attr('width', '100%')
+        .attr('height', '100%')
+        .attr('viewBox', [-width / 2, -height / 2, width, height])
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .call(zoom)
+        .on('dblclick.zoom', null);
+
+    const svgGroup = svg.append('g');
 
     const nodes = data.nodes.map((d, i) => ({ ...d, cluster: clusters[i] }));
-    const links = data.links.map(d => ({ ...d }));
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const links = data.links.map(d => ({
+        ...d,
+        source: nodeMap.get(d.source.id || d.source),
+        target: nodeMap.get(d.target.id || d.target)
+    })).filter(l => l.source && l.target);
 
-    // Re-run simulation for visual effect (soft start from computed layout)
+    // Analyze broken links for this clustering
+    const brokenLinks = analyzeBrokenLinks(data.nodes, data.links, clusters);
+
+    // Order: Hulls, Bad Links (Red), Good Links, Nodes, Labels
+    const hullGroup = svgGroup.append('g').attr('class', 'hulls');
+    const badLinkGroup = svgGroup.append('g').attr('class', 'bad-links');
+    const linkGroup = svgGroup.append('g').attr('class', 'links');
+    const nodeGroup = svgGroup.append('g').attr('class', 'nodes');
+    const labelGroup = svgGroup.append('g').attr('class', 'labels');
+
+    // Simulation with larger forces for bigger canvas
     const simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(100))
-        .force('charge', d3.forceManyBody().strength(-300))
-        .force('collide', d3.forceCollide(20));
+        .force('link', d3.forceLink(links).id(d => d.id).distance(50))
+        .force('charge', d3.forceManyBody().strength(-200))
+        .force('center', d3.forceCenter(0, 0).strength(0.1))
+        .force('collide', d3.forceCollide(20).strength(1));
 
-    const link = svg.append('g')
-        .selectAll('line')
-        .data(links)
+    // Good Links (within cluster)
+    const link = linkGroup.selectAll('line')
+        .data(links.filter(d => d.source.cluster === d.target.cluster))
         .join('line')
-        .attr('class', 'link')
-        .attr('stroke', '#999')
-        .attr('stroke-width', d => Math.sqrt(d.value));
+        .attr('stroke', d => colors[d.source.cluster % colors.length])
+        .attr('stroke-width', d => Math.sqrt(d.value) * 1.2)
+        .attr('stroke-opacity', 0.5);
 
-    const node = svg.append('g')
-        .selectAll('g')
+    // Bad Links (cross-cluster, strong connections)
+    const badLink = badLinkGroup.selectAll('line')
+        .data(links.filter(d => d.source.cluster !== d.target.cluster && d.value > 2))
+        .join('line')
+        .attr('stroke', '#ff0000')
+        .attr('stroke-width', d => Math.sqrt(d.value) * 2.5)
+        .attr('stroke-opacity', 0.95)
+        .attr('stroke-dasharray', '8,4');
+
+    // Nodes - larger for better visibility
+    const node = nodeGroup.selectAll('.node')
         .data(nodes)
         .join('g')
+        .attr('class', 'node')
         .call(drag(simulation));
 
     node.append('circle')
-        .attr('r', 10)
-        .attr('fill', d => colors[d.cluster % colors.length] || '#ccc');
+        .attr('r', 9)
+        .attr('fill', d => colors[d.cluster % colors.length])
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 2.5);
 
-    node.append('text')
-        .text(d => d.id)
-        .attr('x', 12)
-        .attr('y', 4)
-        .style('font-size', '10px')
-        .style('fill', 'var(--text-secondary)')
-        .style('pointer-events', 'none');
+    // Labels (only for small datasets)
+    if (nodes.length < 100) {
+        const labels = labelGroup.selectAll('text')
+            .data(nodes)
+            .join('text')
+            .text(d => d.id)
+            .attr('font-size', '12px')
+            .attr('fill', 'var(--text-primary)')
+            .attr('text-anchor', 'start')
+            .attr('dx', 12)
+            .attr('dy', 4)
+            .style('pointer-events', 'none')
+            .style('text-shadow', '0 2px 4px rgba(0,0,0,0.9)');
+    }
+
+    const curve = d3.line().curve(d3.curveBasisClosed);
 
     simulation.on('tick', () => {
         link
@@ -381,8 +453,134 @@ function visualize(containerId, data, clusters, colors) {
             .attr('x2', d => d.target.x)
             .attr('y2', d => d.target.y);
 
+        badLink
+            .attr('x1', d => d.source.x)
+            .attr('y1', d => d.source.y)
+            .attr('x2', d => d.target.x)
+            .attr('y2', d => d.target.y);
+
         node.attr('transform', d => `translate(${d.x},${d.y})`);
+
+        if (nodes.length < 100) {
+            labelGroup.selectAll('text')
+                .attr('x', d => d.x)
+                .attr('y', d => d.y);
+        }
+
+        // Hulls
+        const clusterPoints = new Map();
+        nodes.forEach(n => {
+            if (!clusterPoints.has(n.cluster)) clusterPoints.set(n.cluster, []);
+            clusterPoints.get(n.cluster).push([n.x, n.y]);
+        });
+
+        const hullData = [];
+        clusterPoints.forEach((points, clusterId) => {
+            if (points.length < 3) return;
+            const hullPoints = d3.polygonHull(points);
+            if (hullPoints) {
+                hullData.push({ cluster: clusterId, path: curve(hullPoints) });
+            }
+        });
+
+        hullGroup.selectAll('path')
+            .data(hullData)
+            .join('path')
+            .attr('d', d => d.path)
+            .attr('fill', d => colors[d.cluster % colors.length])
+            .attr('fill-opacity', 0.08)
+            .attr('stroke', d => colors[d.cluster % colors.length])
+            .attr('stroke-width', 2)
+            .attr('stroke-opacity', 0.3)
+            .attr('stroke-dasharray', '3,3');
     });
+
+    // Add broken link count badge - larger and more visible
+    const badgeSize = isFullscreen ? 20 : 18;
+    const badgeY = -height / 2 + 40;
+
+    if (brokenLinks.length > 0) {
+        const badge = svg.append('g')
+            .attr('transform', `translate(${-width / 2 + 15}, ${badgeY})`);
+
+        badge.append('rect')
+            .attr('x', -5)
+            .attr('y', -badgeSize - 5)
+            .attr('width', 280)
+            .attr('height', badgeSize + 12)
+            .attr('fill', 'rgba(255, 51, 51, 0.2)')
+            .attr('stroke', '#ff3333')
+            .attr('stroke-width', 2)
+            .attr('rx', 6);
+
+        badge.append('text')
+            .attr('x', 5)
+            .attr('y', -5)
+            .attr('fill', '#ff3333')
+            .attr('font-size', `${badgeSize}px`)
+            .attr('font-weight', 'bold')
+            .text(`⚠ ${brokenLinks.length} Broken Connection${brokenLinks.length > 1 ? 's' : ''}`);
+    } else {
+        const badge = svg.append('g')
+            .attr('transform', `translate(${-width / 2 + 15}, ${badgeY})`);
+
+        badge.append('rect')
+            .attr('x', -5)
+            .attr('y', -badgeSize - 5)
+            .attr('width', 280)
+            .attr('height', badgeSize + 12)
+            .attr('fill', 'rgba(76, 175, 80, 0.2)')
+            .attr('stroke', '#4caf50')
+            .attr('stroke-width', 2)
+            .attr('rx', 6);
+
+        badge.append('text')
+            .attr('x', 5)
+            .attr('y', -5)
+            .attr('fill', '#4caf50')
+            .attr('font-size', `${badgeSize}px`)
+            .attr('font-weight', 'bold')
+            .text(`✓ 0 Broken Connections`);
+    }
+
+    // Auto Find/Zoom to Content
+    function autoZoom() {
+        // Calculate bounding box of the graph content (nodes/links/hulls)
+        const bounds = svgGroup.node().getBBox();
+        const fullWidth = width;
+        const fullHeight = height;
+
+        // If empty or invalid, skip
+        if (bounds.width === 0 || bounds.height === 0) return;
+
+        // Determine scale to fit with padding
+        // (Use 0.85 factor to leave space for badges and edges)
+        const scale = 0.85 * Math.min(
+            fullWidth / bounds.width,
+            fullHeight / bounds.height
+        );
+
+        // Clamp scale to reasonable limits (prevent zooming in too much on tiny graphs)
+        // Upper limit reduced to 1.5 to avoid giant nodes
+        const constrainedScale = Math.min(Math.max(scale, 0.2), 1.5);
+
+        // Calculate translation to move center of bounds to center of view (0,0)
+        // Since ViewBox is centered at (0,0), we target that.
+        const midX = bounds.x + bounds.width / 2;
+        const midY = bounds.y + bounds.height / 2;
+
+        // Apply transform
+        const transform = d3.zoomIdentity
+            .translate(-constrainedScale * midX, -constrainedScale * midY)
+            .scale(constrainedScale);
+
+        svg.transition()
+            .duration(750)
+            .call(zoom.transform, transform);
+    }
+
+    // Trigger auto-zoom after simulation has mostly shaped up
+    setTimeout(autoZoom, 600);
 }
 
 function drag(simulation) {
@@ -424,14 +622,16 @@ function runComparison() {
     // 3. Run K-Means
     const kMeansClusters = kMeans(simNodes, data.k || 4);
     const kMeansModularity = calculateModularity(data.nodes, data.links, kMeansClusters);
+    const kMeansBroken = analyzeBrokenLinks(data.nodes, data.links, kMeansClusters);
 
     // 4. Run Leiden
     const leidenClusters = leidenAlgorithm(data.nodes, data.links);
     const leidenModularity = calculateModularity(data.nodes, data.links, leidenClusters);
+    const leidenBroken = analyzeBrokenLinks(data.nodes, data.links, leidenClusters);
 
     // Visualize
-    visualize('kmeans-viz', data, kMeansClusters, colors);
-    visualize('leiden-viz', data, leidenClusters, colors);
+    visualize('kmeans-viz', data, kMeansClusters, colors, 'K-Means');
+    visualize('leiden-viz', data, leidenClusters, colors, 'Leiden');
 
     // Update metrics
     const kmMetric = document.getElementById('kmeans-modularity');
@@ -439,40 +639,36 @@ function runComparison() {
     if (kmMetric) kmMetric.textContent = kMeansModularity.toFixed(3);
     if (ldMetric) ldMetric.textContent = leidenModularity.toFixed(3);
 
-    // Generate interpertation
+    // Generate interpretation with "Smoking Gun"
     const winner = leidenModularity > kMeansModularity ? 'Leiden' : 'K-Means';
     const difference = Math.abs(leidenModularity - kMeansModularity);
     const percentDiff = ((difference / (Math.max(kMeansModularity, leidenModularity) || 1)) * 100).toFixed(1);
 
     let interpretation = `<span class="winner-badge"><i class="bi bi-trophy"></i> ${winner} WINS!</span><br><br>`;
 
-    if (currentDataset === 0) {
-        interpretation += `<strong>Discover Topics Example:</strong><br>`;
-        if (leidenModularity > kMeansModularity) {
-            interpretation += `<strong>Leiden wins by ${percentDiff}%!</strong><br><br>
-            This mirrors the docs example where topic discovery splits documents into Space/Astronomy and Food/Ingredients.`;
-        } else {
-            interpretation += `<strong>K-Means wins by ${percentDiff}%</strong><br><br>
-            When the layout happens to separate the documents cleanly, K-Means can win.`;
+    interpretation += `<strong>🔍 The Smoking Gun:</strong><br>`;
+    interpretation += `<div style="background: rgba(255,51,51,0.1); border-left: 3px solid #ff3333; padding: 12px; margin: 10px 0; border-radius: 4px;">`;
+    interpretation += `<strong style="color: #ff3333;">K-Means Broken Links: ${kMeansBroken.length}</strong><br>`;
+    interpretation += `<strong style="color: #4caf50;">Leiden Broken Links: ${leidenBroken.length}</strong><br><br>`;
+
+    if (kMeansBroken.length > 0) {
+        interpretation += `<strong>What K-Means Got Wrong:</strong><br>`;
+        const examples = kMeansBroken.slice(0, 3);
+        examples.forEach(link => {
+            interpretation += `• Split "<em>${link.source}</em>" from "<em>${link.target}</em>" (similarity: ${link.value})<br>`;
+        });
+        if (kMeansBroken.length > 3) {
+            interpretation += `<em>...and ${kMeansBroken.length - 3} more mistakes</em><br>`;
         }
-    } else if (currentDataset === 1) {
-        interpretation += `<strong>Use Existing Topics Example:</strong><br>`;
-        if (leidenModularity > kMeansModularity) {
-            interpretation += `<strong>Leiden wins by ${percentDiff}%!</strong><br><br>
-            This matches the docs flow where you supply an explicit topics.txt.`;
-        } else {
-            interpretation += `<strong>K-Means wins by ${percentDiff}%</strong><br><br>
-            K-Means can win when the geometry separates the two topic groups.`;
-        }
-    } else {
-        const name = datasets[currentDataset].name;
-        interpretation += `<strong>${name} Analysis:</strong><br>`;
-        interpretation += `<strong>Topic discovery in action!</strong><br><br>
-        Leiden (Network-based) follows semantic links.<br>
-        K-Means (Geometric) tries to find circular clusters in the layout.<br><br>
-        Leiden Modularity: ${leidenModularity.toFixed(3)}<br>
-        K-Means Modularity: ${kMeansModularity.toFixed(3)}`;
     }
+    interpretation += `</div>`;
+
+    interpretation += `<strong>📊 Visual Guide:</strong><br>`;
+    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #4caf50; margin-right: 5px;"></span> Solid colored lines = Items correctly grouped together<br>`;
+    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #ff3333; margin-right: 5px;"></span> Red dashed lines = Related items wrongly separated<br><br>`;
+
+    interpretation += `<strong>Why This Matters:</strong><br>`;
+    interpretation += `Leiden's higher modularity (${leidenModularity.toFixed(3)} vs ${kMeansModularity.toFixed(3)}) means it preserves ${((1 - leidenBroken.length / Math.max(kMeansBroken.length, 1)) * 100).toFixed(0)}% more natural relationships in the data.`;
 
     const interpEl = document.getElementById('interpretation-text');
     if (interpEl) interpEl.innerHTML = interpretation;

@@ -100,7 +100,8 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 12px;
             overflow: hidden;
-            min-height: 600px;
+            min-height: 800px;
+            position: relative;
         }
 
         .viz-container:fullscreen,
@@ -111,11 +112,20 @@
             margin: 0;
             padding: 2rem;
             background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
         }
 
         .viz-container:fullscreen .svg-container,
         .viz-container:-webkit-full-screen .svg-container {
-            height: calc(100vh - 200px);
+            height: calc(100vh - 120px);
+            min-height: calc(100vh - 120px);
+            flex: 1;
+        }
+
+        .viz-container:fullscreen .viz-header,
+        .viz-container:-webkit-full-screen .viz-header {
+            margin-bottom: 1.5rem;
         }
 
         .node {
