@@ -244,6 +244,68 @@
             margin-top: 2rem;
             margin-bottom: 1rem;
         }
+
+        .dimmed {
+            opacity: 0.1 !important;
+            transition: all 0.3s ease;
+        }
+
+        .active-element {
+            opacity: 1 !important;
+            stroke-width: 2.5px !important;
+            filter: brightness(1.2);
+            z-index: 1000;
+        }
+
+        .active-label {
+            opacity: 1 !important;
+            font-weight: 700;
+            fill: #fff !important;
+            text-shadow: 0 0 4px #000;
+            z-index: 1001;
+        }
+
+        .node {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: pointer;
+            transition: opacity 0.3s, fill 0.2s, r 0.3s ease;
+        }
+    </style>
+    <style>
+        /* Modern Slider Styling */
+        .custom-range {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            outline: none;
+            transition: opacity .2s;
+        }
+
+        .custom-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+            border: 2px solid #fff;
+            transition: all 0.2s ease;
+        }
+
+        .form-range::-webkit-slider-thumb {
+            background: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+        }
+
+        .custom-range::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(33, 150, 243, 0.8);
+        }
     </style>
 </head>
 
@@ -265,7 +327,7 @@
                 Explore how two powerful clustering algorithms handle different types of data.
                 K-Means clusters by <strong>geometric distance</strong> (position), while Leiden discovers groups based
                 on
-                <strong>network connectivity</strong> (links). See which one wins across 8 diverse datasets!
+                <strong>network connectivity</strong> (links). See which one wins across 12 diverse datasets!
             </p>
         </div>
 
@@ -333,6 +395,59 @@
                     </div>
                 </div>
 
+                <h3 class="section-title"><i class="bi bi-layers-fill"></i> Large Scale (>100 docs)</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="dataset-card" data-dataset="8">
+                            <h5><i class="bi bi-globe-americas" style="color: #e91e63;"></i> Global News Feed <span
+                                    class="badge bg-danger">150</span></h5>
+                            <p class="text-secondary mb-0">Politics, Tech, Sports, Entertainment, Health</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dataset-card" data-dataset="9">
+                            <h5><i class="bi bi-map text-info"></i> Regional Briefs <span
+                                    class="badge bg-info">120</span></h5>
+                            <p class="text-secondary mb-0">6 categories, medium density</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="dataset-card" data-dataset="10">
+                            <h5><i class="bi bi-broadcast text-warning"></i> World Wire <span
+                                    class="badge bg-warning">180</span></h5>
+                            <p class="text-secondary mb-0">6 categories, heavy coverage</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="dataset-card" data-dataset="11">
+                            <h5><i class="bi bi-stack text-success"></i> Mega Stream <span
+                                    class="badge bg-success">240</span></h5>
+                            <p class="text-secondary mb-0">6 categories, massive volume</p>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="metric-card d-flex align-items-center justify-content-between">
+                            <div>
+                                <h5><i class="bi bi-sliders"></i> Connection Builder</h5>
+                                <p class="text-secondary mb-0">Raise the slider to create/add more links and see how
+                                    clusters change.</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="text-secondary">Sparse</span>
+                                <input type="range" class="custom-range" id="connection-slider" min="0" max="5" step="1"
+                                    value="0" style="width: 400px;">
+                                <span class="text-secondary">Dense</span>
+                                <span class="badge bg-primary" id="slider-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="row mt-4">
                     <div class="col-lg-6">

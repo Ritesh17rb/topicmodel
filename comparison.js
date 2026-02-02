@@ -160,6 +160,49 @@ datasets.push(
     })
 );
 
+const BASE_NEWS_TOPICS = {
+    "Politics": ["Election polls update", "Senate passes bill", "President visits abroad", "Tax reform debate", "Policy change announced", "Diplomatic talks begin", "Vote count continues", "Campaign rally held", "Budget deficit grows", "Law new legislation"],
+    "Technology": ["New AI model released", "Phone battery breakthrough", "Cybersecurity update", "Tech giant merges", "Software version 2.0", "Cloud computing growth", "Silicon chip size", "Virtual reality headset", "Data privacy laws", "Startup raises funds"],
+    "Sports": ["Team wins championship", "Player injury report", "Match highlights video", "Coach strategy change", "Olympics medal count", "World records broken", "Season finals date", "Trade deadline moves", "Stadium renovation plan", "League standings update"],
+    "Entertainment": ["Movie box office hit", "Celebrity award show", "New album drop", "TV series renewable", "Actor interview live", "Concert tour dates", "Streaming service stats", "Film festival winner", "Viral video trend", "Music charts top"],
+    "Health": ["Vaccine trial results", "Healthy diet tips", "Exercise routine plan", "Mental health study", "Doctor advice daily", "Virus spread rate", "Hospital capacity check", "Medical breakthrough", "Wellness app update", "Sleep cycle research"]
+};
+
+const EXTENDED_NEWS_TOPICS = {
+    ...BASE_NEWS_TOPICS,
+    "Environment": ["Climate report released", "Wildlife habitat restored", "Ocean cleanup effort", "Air quality alert", "Recycling rates up", "Renewable energy plan", "Drought conditions rise", "Forest conservation grant", "Water shortage update", "Sustainability pledge"]
+};
+
+function buildTopicData(baseTopics, copies) {
+    const data = {};
+    Object.keys(baseTopics).forEach(key => {
+        data[key] = [];
+        for (let i = 0; i < copies; i++) {
+            baseTopics[key].forEach(base => {
+                data[key].push(`${base} - Report ${i + 1}`);
+            });
+        }
+    });
+    return data;
+}
+
+// Generate a large dataset
+function generateLargeTopicData() {
+    // 5 topics * 10 items * 3 copies = 150
+    return buildTopicData(BASE_NEWS_TOPICS, 3);
+}
+
+datasets.push(
+    createTopicDataset("Global News (150 docs)", "Large scale classification of 5 news categories", generateLargeTopicData())
+);
+
+// Add larger datasets (100+, 150+, 200+)
+datasets.push(
+    createTopicDataset("Regional Briefs (120 docs)", "6 categories with medium density", buildTopicData(EXTENDED_NEWS_TOPICS, 2)),
+    createTopicDataset("World Wire (180 docs)", "6 categories with heavy coverage", buildTopicData(EXTENDED_NEWS_TOPICS, 3)),
+    createTopicDataset("Mega Stream (240 docs)", "6 categories with massive volume", buildTopicData(EXTENDED_NEWS_TOPICS, 4))
+);
+
 // Color schemes for clusters
 const colorSchemes = [
     ['#2196f3', '#ff9800', '#4caf50', '#9c27b0', '#f44336', '#00bcd4', '#ffeb3b', '#795548', '#607d8b'],
@@ -169,21 +212,36 @@ const colorSchemes = [
     ['#00bcd4', '#ff5722', '#8bc34a', '#ffc107', '#673ab7', '#3f51b5', '#f44336', '#009688', '#ff6f00'],
     ['#3f51b5', '#f44336', '#009688', '#ff6f00', '#7b1fa2', '#4caf50', '#1e88e5', '#d81b60', '#43a047'],
     ['#1e88e5', '#d81b60', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#00897b', '#c62828', '#5e35b1'],
-    ['#00897b', '#c62828', '#5e35b1', '#f9a825', '#3949ab', '#7cb342', '#546e7a', '#ef6c00', '#6d4c41']
+    ['#00897b', '#c62828', '#5e35b1', '#f9a825', '#3949ab', '#7cb342', '#546e7a', '#ef6c00', '#6d4c41'],
+    ['#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50'],
+    ['#ff7043', '#26a69a', '#7e57c2', '#42a5f5', '#ab47bc', '#66bb6a', '#ffa726', '#26c6da', '#8d6e63'],
+    ['#5c6bc0', '#ef5350', '#26a69a', '#ffa726', '#ab47bc', '#66bb6a', '#29b6f6', '#8d6e63', '#c0ca33'],
+    ['#26a69a', '#ef5350', '#7e57c2', '#ffa726', '#42a5f5', '#66bb6a', '#ec407a', '#78909c', '#ffee58']
 ];
 
 let currentDataset = 0;
 
+// SHARED PHYSICS CONFIGURATION
+// Ensuring WYSIWYG accuracy between K-Means layout calculation and visualization
+const PHYSICS = {
+    distance: 50,
+    charge: -200,
+    collide: 20,
+    centerStrength: 0.1
+};
+
 // Helper to pre-compute layout for K-Means (Geometry aware)
 function computeLayout(nodes, links) {
     const simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(30))
-        .force('charge', d3.forceManyBody().strength(-100))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(PHYSICS.distance))
+        .force('charge', d3.forceManyBody().strength(PHYSICS.charge))
         .force('center', d3.forceCenter(0, 0))
+        .force('collide', d3.forceCollide(PHYSICS.collide))
         .stop();
 
     // Run simulation ticks to stabilize
-    for (let i = 0; i < 300; ++i) simulation.tick();
+    // Increased iterations for better convergence
+    for (let i = 0; i < 400; ++i) simulation.tick();
     return nodes;
 }
 
@@ -196,106 +254,211 @@ function kMeans(nodes, k = 4) {
         y: n.y,
         index: i
     }));
-    const maxIterations = 50;
 
-    // Initialize centroids using random points from data
-    let centroids = [];
-    for (let i = 0; i < k; i++) {
-        const randomNode = positions[Math.floor(Math.random() * positions.length)];
-        centroids.push({ x: randomNode.x + Math.random(), y: randomNode.y + Math.random() });
-    }
+    // Helper: Calculate Squared Euclidean Distance
+    const distSq = (p1, p2) => (p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2;
 
-    let clusters = new Array(nodes.length).fill(0);
-
-    for (let iter = 0; iter < maxIterations; iter++) {
-        // Assign points to nearest centroid
-        positions.forEach((p, i) => {
-            let minDist = Infinity;
-            let bestCluster = 0;
-            centroids.forEach((c, ci) => {
-                const dist = Math.sqrt((p.x - c.x) ** 2 + (p.y - c.y) ** 2);
-                if (dist < minDist) {
-                    minDist = dist;
-                    bestCluster = ci;
-                }
+    // Correct K-Means++ without the loop bug:
+    function initCentroids(points, k) {
+        const centroids = [points[Math.floor(Math.random() * points.length)]];
+        for (let i = 1; i < k; i++) {
+            const dists = points.map(p => {
+                let min = Infinity;
+                for (const c of centroids) min = Math.min(min, distSq(p, c));
+                return min;
             });
-            clusters[i] = bestCluster;
-        });
-
-        // Update centroids
-        const newCentroids = new Array(k).fill(null).map(() => ({ x: 0, y: 0, count: 0 }));
-        positions.forEach((p, i) => {
-            const c = clusters[i];
-            newCentroids[c].x += p.x;
-            newCentroids[c].y += p.y;
-            newCentroids[c].count++;
-        });
-
-        centroids = newCentroids.map(c => {
-            if (c.count === 0) return { x: Math.random() * 100, y: Math.random() * 100 };
-            return { x: c.x / c.count, y: c.y / c.count };
-        });
+            const sum = dists.reduce((a, b) => a + b, 0);
+            let r = Math.random() * sum;
+            let nextCentroid = points[points.length - 1];
+            for (let j = 0; j < points.length; j++) {
+                r -= dists[j];
+                if (r <= 0) {
+                    nextCentroid = points[j];
+                    break;
+                }
+            }
+            centroids.push({ x: nextCentroid.x, y: nextCentroid.y });
+        }
+        return centroids;
     }
 
-    return clusters;
+    // Run Single K-Means iteration
+    function runOneKMeans(points, k, seeds) {
+        let centroids = seeds.map(c => ({ ...c }));
+        let clusters = new Array(points.length).fill(0);
+        let inertia = 0;
+        let changed = true;
+        let iter = 0;
+        const maxIter = 300;
+
+        while (changed && iter < maxIter) {
+            changed = false;
+            inertia = 0;
+            const newCounts = new Array(k).fill(0);
+            const newSums = Array.from({ length: k }, () => ({ x: 0, y: 0 }));
+
+            // Assign
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                let minD = Infinity;
+                let bestC = 0;
+                for (let j = 0; j < k; j++) {
+                    const d = distSq(p, centroids[j]);
+                    if (d < minD) {
+                        minD = d;
+                        bestC = j;
+                    }
+                }
+                if (clusters[i] !== bestC) changed = true;
+                clusters[i] = bestC;
+                inertia += minD;
+                newCounts[bestC]++;
+                newSums[bestC].x += p.x;
+                newSums[bestC].y += p.y;
+            }
+
+            // Update
+            for (let j = 0; j < k; j++) {
+                if (newCounts[j] > 0) {
+                    centroids[j].x = newSums[j].x / newCounts[j];
+                    centroids[j].y = newSums[j].y / newCounts[j];
+                } else {
+                    // Re-init empty cluster
+                    const randP = points[Math.floor(Math.random() * points.length)];
+                    centroids[j] = { x: randP.x, y: randP.y };
+                }
+            }
+            iter++;
+        }
+        return { clusters, inertia };
+    }
+
+    // Run n_init=10 times and pick best
+    let bestResult = null;
+    let minInertia = Infinity;
+
+    // Auto-detect if n_init needed (10 is standard)
+    const n_init = 10;
+
+    for (let run = 0; run < n_init; run++) {
+        const seeds = initCentroids(positions, k);
+        const result = runOneKMeans(positions, k, seeds);
+        if (result.inertia < minInertia) {
+            minInertia = result.inertia;
+            bestResult = result;
+        }
+    }
+
+    return bestResult.clusters;
 }
 
-// Leiden Algorithm (Simplified Community Detection)
-function leidenAlgorithm(nodes, links) {
+// Leiden Algorithm Implementation (Modularity Maximization)
+function leidenAlgorithm(nodes, links, expectedK = 5) {
     const n = nodes.length;
-    const adjacency = Array(n).fill(null).map(() => Array(n).fill(0));
+    // Resolution parameter (gamma). 
+    const gamma = expectedK / Math.max(n, 1);
+
+    // Build Adjacency
+    const adj = Array.from({ length: n }, () => []);
     const nodeMap = new Map(nodes.map((n, i) => [n.id, i]));
+    let totalWeight = 0;
 
     links.forEach(link => {
         const i = nodeMap.get(link.source.id || link.source);
         const j = nodeMap.get(link.target.id || link.target);
-        if (i !== undefined && j !== undefined) {
-            adjacency[i][j] = link.value;
-            adjacency[j][i] = link.value;
+        if (i !== undefined && j !== undefined && i !== j) {
+            const w = link.value || 1;
+            adj[i].push({ target: j, weight: w });
+            adj[j].push({ target: i, weight: w });
+            totalWeight += w;
         }
     });
 
-    // Initialize communities (each node is its own)
-    let communities = nodes.map((_, i) => i);
+    const m = totalWeight;
+
+    // Node degrees (weighted)
+    const k = new Float64Array(n);
+    adj.forEach((neighbors, i) => {
+        let sum = 0;
+        neighbors.forEach(e => sum += e.weight);
+        k[i] = sum;
+    });
+
+    // Initialize: Each node in its own community
+    let communities = new Int32Array(n).map((_, i) => i);
+
+    // Community weights sum (Sigma_tot)
+    const commDegreeSums = new Map();
+    for (let i = 0; i < n; i++) commDegreeSums.set(i, k[i]);
 
     let improved = true;
-    for (let iter = 0; iter < 20 && improved; iter++) {
-        improved = false;
-        const order = Array.from({ length: n }, (_, i) => i).sort(() => Math.random() - 0.5);
+    const maxPasses = 50;
 
-        for (const i of order) {
-            const currentComm = communities[i];
+    // Greedy Move Phase (Core of Leiden/Louvain)
+    for (let pass = 0; pass < maxPasses && improved; pass++) {
+        improved = false;
+        // Randomize node order
+        const order = Array.from({ length: n }, (_, i) => i);
+        for (let i = order.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+        }
+
+        for (const u of order) {
+            const currentComm = communities[u];
+            const uDegree = k[u];
+
+            // Map: NeighborComm -> weight of links from u to that comm (k_{u,C})
             const neighborComms = new Map();
 
-            // Find neighbor communities
-            for (let j = 0; j < n; j++) {
-                if (adjacency[i][j] > 0) {
-                    const c = communities[j];
-                    neighborComms.set(c, (neighborComms.get(c) || 0) + adjacency[i][j]);
+            adj[u].forEach(edge => {
+                const v = edge.target;
+                const vComm = communities[v];
+                neighborComms.set(vComm, (neighborComms.get(vComm) || 0) + edge.weight);
+            });
+
+            // Ensure current community is in map to evaluate 'staying'
+            if (!neighborComms.has(currentComm)) neighborComms.set(currentComm, 0);
+
+            let bestComm = currentComm;
+            let bestScore = -Infinity;
+
+            const twoM = 2 * Math.max(m, 1);
+
+            for (const [commId, k_u_c] of neighborComms.entries()) {
+                let sigma_tot = commDegreeSums.get(commId);
+
+                // If u is currently in commId, sigma_tot includes k_u. We want 'rest of community'.
+                if (commId === currentComm) {
+                    sigma_tot -= uDegree;
+                }
+
+                // Objective Function Change component
+                const score = k_u_c - (gamma * uDegree * sigma_tot / twoM);
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestComm = commId;
+                } else if (Math.abs(score - bestScore) < 1e-9) {
+                    // Tie-breaking: stability preference
+                    if (commId === currentComm) bestComm = commId;
                 }
             }
 
-            let bestComm = currentComm;
-            let maxWeight = neighborComms.get(currentComm) || 0;
-
-            neighborComms.forEach((weight, c) => {
-                if (weight > maxWeight) {
-                    maxWeight = weight;
-                    bestComm = c;
-                }
-            });
-
             if (bestComm !== currentComm) {
-                communities[i] = bestComm;
+                // Update State
+                commDegreeSums.set(currentComm, commDegreeSums.get(currentComm) - uDegree);
+                commDegreeSums.set(bestComm, (commDegreeSums.get(bestComm) || 0) + uDegree);
+                communities[u] = bestComm;
                 improved = true;
             }
         }
     }
 
-    // Remap communities to 0..k
+    // Remap to 0..k for visualization
     const unique = [...new Set(communities)];
     const map = new Map(unique.map((c, i) => [c, i]));
-    return communities.map(c => map.get(c));
+    return Array.from(communities).map(c => map.get(c));
 }
 
 // Modularity Calculation
@@ -346,8 +509,49 @@ function analyzeBrokenLinks(nodes, links, clusters) {
     return brokenLinks;
 }
 
+function addDynamicLinks(nodes, baseLinks, sliderValue) {
+    if (!nodes || nodes.length === 0) return baseLinks;
+    if (!baseLinks) baseLinks = [];
+
+    const linkKey = (a, b) => (a < b ? `${a}||${b}` : `${b}||${a}`);
+    const existing = new Map();
+    baseLinks.forEach(link => {
+        const a = link.source.id || link.source;
+        const b = link.target.id || link.target;
+        existing.set(linkKey(a, b), link.value);
+    });
+
+    if (sliderValue <= 0) return baseLinks;
+
+    const sameProb = Math.min(0.12 + sliderValue * 0.08, 0.75);
+    const crossProb = Math.min(0.01 + sliderValue * 0.02, 0.15);
+    const newLinks = [...baseLinks];
+
+    for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+            const a = nodes[i];
+            const b = nodes[j];
+            const key = linkKey(a.id, b.id);
+            if (existing.has(key)) continue;
+
+            const sameGroup = a.group === b.group;
+            const p = sameGroup ? sameProb : crossProb;
+            if (Math.random() < p) {
+                const value = sameGroup
+                    ? 2 + Math.floor(Math.random() * Math.max(2, sliderValue + 1))
+                    : 1 + (sliderValue >= 4 ? 1 : 0);
+                newLinks.push({ source: a.id, target: b.id, value });
+                existing.set(key, value);
+            }
+        }
+    }
+
+    return newLinks;
+}
+
 // Visualization with "Smoking Gun" highlights
-function visualize(containerId, data, clusters, colors, algorithmName) {
+// Accepts 'preComputedNodes' to ensure WYSIWYG accuracy
+function visualize(containerId, data, clusters, colors, algorithmName, preComputedNodes = null) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
@@ -358,9 +562,22 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
     const height = isFullscreen ? window.innerHeight - 150 : 800;
 
     const zoom = d3.zoom()
-        .scaleExtent([0.5, 4])
+        .scaleExtent([0.1, 8])
         .on('zoom', (event) => {
             svgGroup.attr('transform', event.transform);
+
+            // Synchronized Zoom
+            if (event.sourceEvent) {
+                const otherId = containerId === 'kmeans-viz' ? 'leiden-viz' : 'kmeans-viz';
+                if (window.vizSync && window.vizSync[otherId]) {
+                    const { svg: otherSvg, zoom: otherZoom } = window.vizSync[otherId];
+                    // Apply transform to other visualization without triggering its event loop
+                    // (d3 zoom transform triggers event, but sourceEvent will be null)
+                    if (otherSvg && otherZoom) {
+                        otherSvg.call(otherZoom.transform, event.transform);
+                    }
+                }
+            }
         });
 
     const svg = d3.select(`#${containerId}`)
@@ -372,9 +589,28 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
         .call(zoom)
         .on('dblclick.zoom', null);
 
+    // Update global sync object with actual zoom behavior
+    if (window.vizSync && window.vizSync[containerId]) {
+        window.vizSync[containerId].zoom = zoom;
+    }
+
     const svgGroup = svg.append('g');
 
-    const nodes = data.nodes.map((d, i) => ({ ...d, cluster: clusters[i] }));
+    // Use pre-computed nodes if available (preserves K-Means geometry)
+    // or fallback to fresh nodes
+    let nodes;
+    if (preComputedNodes) {
+        // Use coordinates from pre-compute
+        nodes = preComputedNodes.map((n, i) => ({
+            ...n,
+            cluster: clusters[i],
+            x: n.x,
+            y: n.y
+        }));
+    } else {
+        nodes = data.nodes.map((d, i) => ({ ...d, cluster: clusters[i] }));
+    }
+
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const links = data.links.map(d => ({
         ...d,
@@ -392,57 +628,114 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
     const nodeGroup = svgGroup.append('g').attr('class', 'nodes');
     const labelGroup = svgGroup.append('g').attr('class', 'labels');
 
-    // Simulation with larger forces for bigger canvas
+    // Register for Sync
+    if (!window.vizSync) window.vizSync = {};
+    window.vizSync[containerId] = { svg, zoom: null };
+
+    // Simulation uses SHARED PHYSICS parameters
     const simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(50))
-        .force('charge', d3.forceManyBody().strength(-200))
-        .force('center', d3.forceCenter(0, 0).strength(0.1))
-        .force('collide', d3.forceCollide(20).strength(1));
+        .force('link', d3.forceLink(links).id(d => d.id).distance(PHYSICS.distance))
+        .force('charge', d3.forceManyBody().strength(PHYSICS.charge))
+        .force('center', d3.forceCenter(0, 0).strength(PHYSICS.centerStrength))
+        .force('collide', d3.forceCollide(PHYSICS.collide).strength(1));
+
+    // Dynamic Visuals for Large Datasets
+    const isLarge = nodes.length > 80;
+    const nodeRadius = isLarge ? 5 : 10;
+    const linkOpacity = isLarge ? 0.2 : 0.6;
+    const linkWidthScale = isLarge ? 0.8 : 1.5;
 
     // Good Links (within cluster)
     const link = linkGroup.selectAll('line')
         .data(links.filter(d => d.source.cluster === d.target.cluster))
         .join('line')
         .attr('stroke', d => colors[d.source.cluster % colors.length])
-        .attr('stroke-width', d => Math.sqrt(d.value) * 1.2)
-        .attr('stroke-opacity', 0.5);
+        .attr('stroke-width', d => Math.sqrt(d.value) * linkWidthScale)
+        .attr('stroke-opacity', linkOpacity);
 
     // Bad Links (cross-cluster, strong connections)
     const badLink = badLinkGroup.selectAll('line')
         .data(links.filter(d => d.source.cluster !== d.target.cluster && d.value > 2))
         .join('line')
-        .attr('stroke', '#ff0000')
+        .attr('stroke', '#ff3333')
         .attr('stroke-width', d => Math.sqrt(d.value) * 2.5)
-        .attr('stroke-opacity', 0.95)
-        .attr('stroke-dasharray', '8,4');
+        .attr('stroke-opacity', 0.8)
+        .attr('stroke-dasharray', '6,3');
 
-    // Nodes - larger for better visibility
+    // Nodes - with hover interaction
     const node = nodeGroup.selectAll('.node')
         .data(nodes)
         .join('g')
         .attr('class', 'node')
+        .on('mouseover', function (event, d) {
+            const connectedNodeIds = new Set();
+            connectedNodeIds.add(d.id);
+
+            // Find neighbors
+            links.forEach(l => {
+                if (l.source.id === d.id) connectedNodeIds.add(l.target.id);
+                if (l.target.id === d.id) connectedNodeIds.add(l.source.id);
+            });
+
+            // Dim others
+            nodeGroup.selectAll('.node').classed('dimmed', n => !connectedNodeIds.has(n.id));
+            linkGroup.selectAll('line').classed('dimmed', l => l.source.id !== d.id && l.target.id !== d.id);
+            badLinkGroup.selectAll('line').classed('dimmed', l => l.source.id !== d.id && l.target.id !== d.id);
+
+            // Highlight neighbors and self
+            nodeGroup.selectAll('.node')
+                .filter(n => connectedNodeIds.has(n.id))
+                .classed('active-element', true);
+
+            linkGroup.selectAll('line')
+                .filter(l => l.source.id === d.id || l.target.id === d.id)
+                .classed('active-element', true);
+
+            badLinkGroup.selectAll('line')
+                .filter(l => l.source.id === d.id || l.target.id === d.id)
+                .classed('active-element', true);
+
+            // Labels (Show neighbors, dim others but keep slightly visible)
+            labelGroup.selectAll('text')
+                .classed('active-label', n => connectedNodeIds.has(n.id))
+                .style('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+        })
+        .on('mouseout', function () {
+            svgGroup.selectAll('.dimmed').classed('dimmed', false);
+            svgGroup.selectAll('.active-element').classed('active-element', false);
+            labelGroup.selectAll('.active-label').classed('active-label', false);
+            // Reset Label Opacity (Keep visible)
+            labelGroup.selectAll('text').style('opacity', 1);
+        })
         .call(drag(simulation));
 
     node.append('circle')
-        .attr('r', 9)
+        .attr('r', nodeRadius)
         .attr('fill', d => colors[d.cluster % colors.length])
         .attr('stroke', '#fff')
-        .attr('stroke-width', 2.5);
+        .attr('stroke-width', isLarge ? 1 : 2);
 
-    // Labels (only for small datasets)
-    if (nodes.length < 100) {
-        const labels = labelGroup.selectAll('text')
-            .data(nodes)
-            .join('text')
-            .text(d => d.id)
-            .attr('font-size', '12px')
-            .attr('fill', 'var(--text-primary)')
-            .attr('text-anchor', 'start')
-            .attr('dx', 12)
-            .attr('dy', 4)
-            .style('pointer-events', 'none')
-            .style('text-shadow', '0 2px 4px rgba(0,0,0,0.9)');
-    }
+    const labelFont = nodes.length >= 200 ? 9 : nodes.length >= 120 ? 10 : 12;
+    const labelHaloWidth = nodes.length >= 200 ? 3.5 : nodes.length >= 120 ? 3 : 2.5;
+
+    // Labels (Always Visible with Smart Styling)
+    const labels = labelGroup.selectAll('text')
+        .data(nodes)
+        .join('text')
+        .text(d => d.id)
+        .attr('font-size', `${labelFont}px`)
+        .attr('fill', '#fff')
+        .attr('text-anchor', 'start')
+        .attr('dx', isLarge ? 8 : 14)
+        .attr('dy', 4)
+        .style('opacity', 1)
+        .style('pointer-events', 'none')
+        .style('paint-order', 'stroke')
+        .style('stroke', 'rgba(0,0,0,0.8)')
+        .style('stroke-width', '3px')
+        .style('stroke-linejoin', 'round')
+        .style('font-weight', isLarge ? 'normal' : '500')
+        .style('text-shadow', '0 2px 4px rgba(0,0,0,1)');
 
     const curve = d3.line().curve(d3.curveBasisClosed);
 
@@ -461,11 +754,9 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
 
         node.attr('transform', d => `translate(${d.x},${d.y})`);
 
-        if (nodes.length < 100) {
-            labelGroup.selectAll('text')
-                .attr('x', d => d.x)
-                .attr('y', d => d.y);
-        }
+        labelGroup.selectAll('text')
+            .attr('x', d => d.x)
+            .attr('y', d => d.y);
 
         // Hulls
         const clusterPoints = new Map();
@@ -488,14 +779,14 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
             .join('path')
             .attr('d', d => d.path)
             .attr('fill', d => colors[d.cluster % colors.length])
-            .attr('fill-opacity', 0.08)
+            .attr('fill-opacity', 0.1)
             .attr('stroke', d => colors[d.cluster % colors.length])
-            .attr('stroke-width', 2)
-            .attr('stroke-opacity', 0.3)
-            .attr('stroke-dasharray', '3,3');
+            .attr('stroke-width', 1.5)
+            .attr('stroke-opacity', 0.4)
+            .attr('stroke-dasharray', '4,4');
     });
 
-    // Add broken link count badge - larger and more visible
+    // Add broken link count badge
     const badgeSize = isFullscreen ? 20 : 18;
     const badgeY = -height / 2 + 40;
 
@@ -545,31 +836,21 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
 
     // Auto Find/Zoom to Content
     function autoZoom() {
-        // Calculate bounding box of the graph content (nodes/links/hulls)
         const bounds = svgGroup.node().getBBox();
         const fullWidth = width;
         const fullHeight = height;
 
-        // If empty or invalid, skip
         if (bounds.width === 0 || bounds.height === 0) return;
 
-        // Determine scale to fit with padding
-        // (Use 0.85 factor to leave space for badges and edges)
         const scale = 0.85 * Math.min(
             fullWidth / bounds.width,
             fullHeight / bounds.height
         );
 
-        // Clamp scale to reasonable limits (prevent zooming in too much on tiny graphs)
-        // Upper limit reduced to 1.5 to avoid giant nodes
         const constrainedScale = Math.min(Math.max(scale, 0.2), 1.5);
-
-        // Calculate translation to move center of bounds to center of view (0,0)
-        // Since ViewBox is centered at (0,0), we target that.
         const midX = bounds.x + bounds.width / 2;
         const midY = bounds.y + bounds.height / 2;
 
-        // Apply transform
         const transform = d3.zoomIdentity
             .translate(-constrainedScale * midX, -constrainedScale * midY)
             .scale(constrainedScale);
@@ -579,8 +860,8 @@ function visualize(containerId, data, clusters, colors, algorithmName) {
             .call(zoom.transform, transform);
     }
 
-    // Trigger auto-zoom after simulation has mostly shaped up
-    setTimeout(autoZoom, 600);
+    // Slight delay to allow ticks
+    setTimeout(autoZoom, 400);
 }
 
 function drag(simulation) {
@@ -609,29 +890,54 @@ function drag(simulation) {
 
 // Run Comparison
 function runComparison() {
+    // Reset Sync State
+    window.vizSync = {};
+
     const data = datasets[currentDataset];
     const colors = colorSchemes[currentDataset];
 
+    // Get slider value
+    const slider = document.getElementById('connection-slider');
+    const sliderValue = slider ? parseInt(slider.value) : 0;
+
+    // Update slider display
+    const validDisplay = document.getElementById('slider-value');
+    if (validDisplay) validDisplay.textContent = sliderValue;
+
+    // Dynamically add connections based on slider (Density)
+    const dynamicLinks = addDynamicLinks(data.nodes, data.links, sliderValue);
+
+    // Create a data object for visualization and algorithms
+    const filteredData = {
+        ...data,
+        links: dynamicLinks
+    };
+
     // 1. Prepare data clones
     const simNodes = data.nodes.map(d => ({ ...d }));
-    const simLinks = data.links.map(d => ({ ...d, source: d.source, target: d.target }));
+    // Links need deep copy reference to source/target string/id if string
+    const simLinks = dynamicLinks.map(d => ({ ...d, source: d.source, target: d.target }));
 
     // 2. Compute Layout (Geometry)
+    // This adds x/y to simNodes based on the PHYSICS config
     computeLayout(simNodes, simLinks);
 
     // 3. Run K-Means
+    // Uses the computed x/y from simNodes
     const kMeansClusters = kMeans(simNodes, data.k || 4);
-    const kMeansModularity = calculateModularity(data.nodes, data.links, kMeansClusters);
-    const kMeansBroken = analyzeBrokenLinks(data.nodes, data.links, kMeansClusters);
+    const kMeansModularity = calculateModularity(data.nodes, dynamicLinks, kMeansClusters);
+    const kMeansBroken = analyzeBrokenLinks(data.nodes, dynamicLinks, kMeansClusters);
 
     // 4. Run Leiden
-    const leidenClusters = leidenAlgorithm(data.nodes, data.links);
-    const leidenModularity = calculateModularity(data.nodes, data.links, leidenClusters);
-    const leidenBroken = analyzeBrokenLinks(data.nodes, data.links, leidenClusters);
+    // Use dynamic links (Leiden depends on graph structure)
+    const leidenClusters = leidenAlgorithm(data.nodes, dynamicLinks, data.k || 4);
+    const leidenModularity = calculateModularity(data.nodes, dynamicLinks, leidenClusters);
+    const leidenBroken = analyzeBrokenLinks(data.nodes, dynamicLinks, leidenClusters);
 
     // Visualize
-    visualize('kmeans-viz', data, kMeansClusters, colors, 'K-Means');
-    visualize('leiden-viz', data, leidenClusters, colors, 'Leiden');
+    // PASS simNodes SO VISUALIZATION USES SAME GEOMETRY AS K-MEANS
+    visualize('kmeans-viz', filteredData, kMeansClusters, colors, 'K-Means', simNodes);
+    visualize('leiden-viz', filteredData, leidenClusters, colors, 'Leiden', simNodes);
 
     // Update metrics
     const kmMetric = document.getElementById('kmeans-modularity');
@@ -639,10 +945,8 @@ function runComparison() {
     if (kmMetric) kmMetric.textContent = kMeansModularity.toFixed(3);
     if (ldMetric) ldMetric.textContent = leidenModularity.toFixed(3);
 
-    // Generate interpretation with "Smoking Gun"
+    // Interpretation
     const winner = leidenModularity > kMeansModularity ? 'Leiden' : 'K-Means';
-    const difference = Math.abs(leidenModularity - kMeansModularity);
-    const percentDiff = ((difference / (Math.max(kMeansModularity, leidenModularity) || 1)) * 100).toFixed(1);
 
     let interpretation = `<span class="winner-badge"><i class="bi bi-trophy"></i> ${winner} WINS!</span><br><br>`;
 
@@ -663,12 +967,11 @@ function runComparison() {
     }
     interpretation += `</div>`;
 
-    interpretation += `<strong>📊 Visual Guide:</strong><br>`;
-    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #4caf50; margin-right: 5px;"></span> Solid colored lines = Items correctly grouped together<br>`;
-    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #ff3333; margin-right: 5px;"></span> Red dashed lines = Related items wrongly separated<br><br>`;
+    interpretation += `<strong>📊 Connection Density Level ${sliderValue}:</strong><br>`;
+    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #4caf50; margin-right: 5px;"></span> Higher values add more links across the graph<br><br>`;
 
     interpretation += `<strong>Why This Matters:</strong><br>`;
-    interpretation += `Leiden's higher modularity (${leidenModularity.toFixed(3)} vs ${kMeansModularity.toFixed(3)}) means it preserves ${((1 - leidenBroken.length / Math.max(kMeansBroken.length, 1)) * 100).toFixed(0)}% more natural relationships in the data.`;
+    interpretation += `Leiden's higher modularity (${leidenModularity.toFixed(3)} vs ${kMeansModularity.toFixed(3)}) means it preserves more natural relationships in the data.`;
 
     const interpEl = document.getElementById('interpretation-text');
     if (interpEl) interpEl.innerHTML = interpretation;
@@ -683,6 +986,14 @@ document.querySelectorAll('.dataset-card').forEach((card, index) => {
         runComparison();
     });
 });
+
+// Slider Listener
+const slider = document.getElementById('connection-slider');
+if (slider) {
+    slider.addEventListener('input', () => {
+        runComparison();
+    });
+}
 
 // Setup Fullscreen
 const buttons = document.querySelectorAll('[data-fullscreen-target]');
