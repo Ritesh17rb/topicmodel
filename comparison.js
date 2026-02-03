@@ -642,25 +642,32 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
     // Dynamic Visuals for Large Datasets
     const isLarge = nodes.length > 80;
     const nodeRadius = isLarge ? 5 : 10;
-    const linkOpacity = isLarge ? 0.2 : 0.6;
-    const linkWidthScale = isLarge ? 0.8 : 1.5;
+    const linkOpacity = isLarge ? 0.3 : 0.55;
+    const linkWidthScale = isLarge ? 0.6 : 0.9;
+    const badLinkWidthScale = isLarge ? 0.55 : 0.85;
 
     // Good Links (within cluster)
     const link = linkGroup.selectAll('line')
         .data(links.filter(d => d.source.cluster === d.target.cluster))
         .join('line')
-        .attr('stroke', d => colors[d.source.cluster % colors.length])
+        .attr('stroke', 'var(--viz-link)')
         .attr('stroke-width', d => Math.sqrt(d.value) * linkWidthScale)
         .attr('stroke-opacity', linkOpacity);
+
+    const showBrokenOnly = window.showBrokenOnly === true;
+    const brokenDash = showBrokenOnly ? null : '2 5';
 
     // Bad Links (cross-cluster, strong connections)
     const badLink = badLinkGroup.selectAll('line')
         .data(links.filter(d => d.source.cluster !== d.target.cluster && d.value > 2))
         .join('line')
-        .attr('stroke', '#ff3333')
-        .attr('stroke-width', d => Math.sqrt(d.value) * 2.5)
+        .attr('stroke', 'var(--viz-bad)')
+        .attr('stroke-width', d => Math.max(0.8, Math.sqrt(d.value) * badLinkWidthScale))
         .attr('stroke-opacity', 0.8)
-        .attr('stroke-dasharray', '6,3');
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-dasharray', brokenDash);
+
+    link.style('display', showBrokenOnly ? 'none' : null);
 
     // Nodes - with hover interaction
     const node = nodeGroup.selectAll('.node')
@@ -712,7 +719,7 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
     node.append('circle')
         .attr('r', nodeRadius)
         .attr('fill', d => colors[d.cluster % colors.length])
-        .attr('stroke', '#fff')
+        .attr('stroke', 'var(--viz-node-stroke)')
         .attr('stroke-width', isLarge ? 1 : 2);
 
     const labelFont = nodes.length >= 200 ? 9 : nodes.length >= 120 ? 10 : 12;
@@ -724,18 +731,18 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
         .join('text')
         .text(d => d.id)
         .attr('font-size', `${labelFont}px`)
-        .attr('fill', '#fff')
+        .attr('fill', 'var(--viz-label-fill)')
         .attr('text-anchor', 'start')
         .attr('dx', isLarge ? 8 : 14)
         .attr('dy', 4)
         .style('opacity', 1)
         .style('pointer-events', 'none')
         .style('paint-order', 'stroke')
-        .style('stroke', 'rgba(0,0,0,0.8)')
+        .style('stroke', 'var(--viz-label-stroke)')
         .style('stroke-width', '3px')
         .style('stroke-linejoin', 'round')
         .style('font-weight', isLarge ? 'normal' : '500')
-        .style('text-shadow', '0 2px 4px rgba(0,0,0,1)');
+        .style('text-shadow', 'var(--viz-label-shadow)');
 
     const curve = d3.line().curve(d3.curveBasisClosed);
 
@@ -799,15 +806,15 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
             .attr('y', -badgeSize - 5)
             .attr('width', 280)
             .attr('height', badgeSize + 12)
-            .attr('fill', 'rgba(255, 51, 51, 0.2)')
-            .attr('stroke', '#ff3333')
+            .attr('fill', 'var(--viz-bad-soft)')
+            .attr('stroke', 'var(--viz-bad)')
             .attr('stroke-width', 2)
             .attr('rx', 6);
 
         badge.append('text')
             .attr('x', 5)
             .attr('y', -5)
-            .attr('fill', '#ff3333')
+            .attr('fill', 'var(--viz-bad)')
             .attr('font-size', `${badgeSize}px`)
             .attr('font-weight', 'bold')
             .text(`⚠ ${brokenLinks.length} Broken Connection${brokenLinks.length > 1 ? 's' : ''}`);
@@ -820,15 +827,15 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
             .attr('y', -badgeSize - 5)
             .attr('width', 280)
             .attr('height', badgeSize + 12)
-            .attr('fill', 'rgba(76, 175, 80, 0.2)')
-            .attr('stroke', '#4caf50')
+            .attr('fill', 'var(--viz-good-soft)')
+            .attr('stroke', 'var(--viz-good)')
             .attr('stroke-width', 2)
             .attr('rx', 6);
 
         badge.append('text')
             .attr('x', 5)
             .attr('y', -5)
-            .attr('fill', '#4caf50')
+            .attr('fill', 'var(--viz-good)')
             .attr('font-size', `${badgeSize}px`)
             .attr('font-weight', 'bold')
             .text(`✓ 0 Broken Connections`);
@@ -951,9 +958,9 @@ function runComparison() {
     let interpretation = `<span class="winner-badge"><i class="bi bi-trophy"></i> ${winner} WINS!</span><br><br>`;
 
     interpretation += `<strong>🔍 The Smoking Gun:</strong><br>`;
-    interpretation += `<div style="background: rgba(255,51,51,0.1); border-left: 3px solid #ff3333; padding: 12px; margin: 10px 0; border-radius: 4px;">`;
-    interpretation += `<strong style="color: #ff3333;">K-Means Broken Links: ${kMeansBroken.length}</strong><br>`;
-    interpretation += `<strong style="color: #4caf50;">Leiden Broken Links: ${leidenBroken.length}</strong><br><br>`;
+    interpretation += `<div style="background: var(--viz-bad-soft); border-left: 3px solid var(--viz-bad); padding: 12px; margin: 10px 0; border-radius: 4px;">`;
+    interpretation += `<strong style="color: var(--viz-bad);">K-Means Broken Links: ${kMeansBroken.length}</strong><br>`;
+    interpretation += `<strong style="color: var(--viz-good);">Leiden Broken Links: ${leidenBroken.length}</strong><br><br>`;
 
     if (kMeansBroken.length > 0) {
         interpretation += `<strong>What K-Means Got Wrong:</strong><br>`;
@@ -968,13 +975,24 @@ function runComparison() {
     interpretation += `</div>`;
 
     interpretation += `<strong>📊 Connection Density Level ${sliderValue}:</strong><br>`;
-    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: #4caf50; margin-right: 5px;"></span> Higher values add more links across the graph<br><br>`;
+    interpretation += `<span style="display: inline-block; width: 20px; height: 3px; background: var(--viz-good); margin-right: 5px;"></span> Higher values add more links across the graph<br><br>`;
 
     interpretation += `<strong>Why This Matters:</strong><br>`;
     interpretation += `Leiden's higher modularity (${leidenModularity.toFixed(3)} vs ${kMeansModularity.toFixed(3)}) means it preserves more natural relationships in the data.`;
 
     const interpEl = document.getElementById('interpretation-text');
     if (interpEl) interpEl.innerHTML = interpretation;
+}
+
+function updateBrokenToggleButton() {
+    const button = document.getElementById('toggle-broken-only');
+    if (!button) return;
+    const active = window.showBrokenOnly === true;
+    button.classList.toggle('btn-primary', active);
+    button.classList.toggle('btn-outline-primary', !active);
+    button.innerHTML = active
+        ? '<i class="bi bi-exclamation-triangle"></i> Showing broken links'
+        : '<i class="bi bi-exclamation-triangle"></i> Show only broken links';
 }
 
 // Event Listeners
@@ -991,6 +1009,17 @@ document.querySelectorAll('.dataset-card').forEach((card, index) => {
 const slider = document.getElementById('connection-slider');
 if (slider) {
     slider.addEventListener('input', () => {
+        runComparison();
+    });
+}
+
+const brokenToggle = document.getElementById('toggle-broken-only');
+if (brokenToggle) {
+    if (window.showBrokenOnly === undefined) window.showBrokenOnly = false;
+    updateBrokenToggleButton();
+    brokenToggle.addEventListener('click', () => {
+        window.showBrokenOnly = !window.showBrokenOnly;
+        updateBrokenToggleButton();
         runComparison();
     });
 }

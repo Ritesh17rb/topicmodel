@@ -11,61 +11,70 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
     <style>
         :root {
-            --bg-primary: #0a0e27;
-            --bg-secondary: #1a1f3a;
-            --bg-card: #252b48;
-            --text-primary: #e8eaf6;
-            --text-secondary: #9fa8da;
-            --accent-blue: #2196f3;
-            --accent-purple: #9c27b0;
-            --accent-green: #4caf50;
-            --accent-orange: #ff9800;
-            --border-color: rgba(255, 255, 255, 0.1);
+            --viz-bad: #d94848;
+            --viz-bad-soft: rgba(217, 72, 72, 0.18);
+            --viz-good: #2f9e44;
+            --viz-good-soft: rgba(47, 158, 68, 0.18);
+            --viz-link: rgba(15, 23, 42, 0.55);
+            --viz-label-fill: #1f2933;
+            --viz-label-stroke: rgba(255, 255, 255, 0.85);
+            --viz-label-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+            --viz-node-stroke: #ffffff;
+        }
+
+        [data-bs-theme="dark"] {
+            --viz-bad: #ff6b6b;
+            --viz-bad-soft: rgba(255, 107, 107, 0.2);
+            --viz-good: #51cf66;
+            --viz-good-soft: rgba(81, 207, 102, 0.2);
+            --viz-link: rgba(248, 249, 250, 0.5);
+            --viz-label-fill: #f8f9fa;
+            --viz-label-stroke: rgba(0, 0, 0, 0.85);
+            --viz-label-shadow: 0 2px 4px rgba(0, 0, 0, 0.75);
+            --viz-node-stroke: rgba(255, 255, 255, 0.9);
         }
 
         body {
-            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
-            color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
             min-height: 100vh;
         }
 
         .hero-section {
-            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(156, 39, 176, 0.1) 100%);
-            border-radius: 24px;
+            background: var(--bs-tertiary-bg);
+            border-radius: 1.5rem;
             padding: 3rem 2rem;
             margin: 2rem 0;
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(10px);
+            border: 1px solid var(--bs-border-color);
         }
 
         .dataset-card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            padding: 1.5rem;
+            background: var(--bs-body-bg);
+            border-radius: 1rem;
+            padding: 1.25rem;
             margin: 1rem 0;
-            border: 1px solid var(--border-color);
-            transition: all 0.3s ease;
+            border: 1px solid var(--bs-border-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
             cursor: pointer;
         }
 
         .dataset-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 32px rgba(33, 150, 243, 0.3);
-            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+            box-shadow: var(--bs-box-shadow);
+            border-color: var(--bs-primary);
         }
 
         .dataset-card.active {
-            border-color: var(--accent-purple);
-            box-shadow: 0 8px 32px rgba(156, 39, 176, 0.4);
+            border-color: var(--bs-primary);
+            box-shadow: var(--bs-box-shadow-lg);
         }
 
         .viz-container {
-            background: var(--bg-card);
-            border-radius: 16px;
+            background: var(--bs-tertiary-bg);
+            border-radius: 1rem;
             padding: 2rem;
             margin: 2rem 0;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--bs-border-color);
         }
 
         .viz-header {
@@ -82,23 +91,22 @@
             text-transform: uppercase;
             letter-spacing: 0.06em;
             padding: 0.5rem 0.9rem;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            background: rgba(255, 255, 255, 0.08);
-            color: var(--text-secondary);
-            transition: all 0.2s ease;
+            border-radius: 0.6rem;
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
         }
 
         .fullscreen-btn:hover {
-            color: var(--text-primary);
-            border-color: var(--accent-blue);
-            box-shadow: 0 6px 18px rgba(33, 150, 243, 0.2);
+            border-color: var(--bs-primary);
+            box-shadow: var(--bs-box-shadow);
             transform: translateY(-1px);
         }
 
         .svg-container {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
+            background: var(--bs-secondary-bg);
+            border-radius: 0.75rem;
             overflow: hidden;
             min-height: 800px;
             position: relative;
@@ -111,7 +119,7 @@
             border-radius: 0;
             margin: 0;
             padding: 2rem;
-            background: var(--bg-secondary);
+            background: var(--bs-body-bg);
             display: flex;
             flex-direction: column;
         }
@@ -141,46 +149,43 @@
         }
 
         .link {
-            stroke: rgba(255, 255, 255, 0.2);
+            stroke: rgba(0, 0, 0, 0.2);
             stroke-opacity: 0.6;
         }
 
         .node-label {
-            fill: var(--text-primary);
+            fill: var(--bs-body-color);
             font-size: 12px;
             font-weight: 500;
             pointer-events: none;
-            text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.35);
         }
 
         .metric-card {
-            background: linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(156, 39, 176, 0.1) 100%);
-            border-radius: 12px;
+            background: var(--bs-tertiary-bg);
+            border-radius: 0.75rem;
             padding: 1.5rem;
             margin: 1rem 0;
-            border: 1px solid var(--border-color);
+            border: 1px solid var(--bs-border-color);
         }
 
         .metric-value {
             font-size: 2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            color: var(--bs-primary);
         }
 
         .winner-badge {
             display: inline-block;
             padding: 0.5rem 1rem;
-            border-radius: 20px;
-            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+            border-radius: 999px;
+            background: var(--bs-success);
+            color: #fff;
             font-weight: 600;
             animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
-
             0%,
             100% {
                 transform: scale(1);
@@ -205,49 +210,60 @@
             border: 2px solid #fff;
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-            border: none;
-            padding: 0.75rem 2rem;
-            border-radius: 12px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(33, 150, 243, 0.4);
-        }
-
         .interpretation {
-            background: rgba(76, 175, 80, 0.1);
-            border-left: 4px solid var(--accent-green);
+            background: var(--bs-success-bg-subtle);
+            border-left: 4px solid var(--bs-success);
             padding: 1.5rem;
-            border-radius: 8px;
+            border-radius: 0.5rem;
             margin: 1.5rem 0;
         }
 
         .example-block {
-            background: rgba(10, 14, 39, 0.6);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.6rem;
             padding: 0.85rem 1rem;
-            color: var(--text-primary);
+            color: var(--bs-body-color);
             font-size: 0.9rem;
             margin-top: 0.75rem;
             white-space: pre-wrap;
         }
 
         .section-title {
-            color: var(--accent-blue);
+            color: var(--bs-primary);
             font-weight: 600;
             margin-top: 2rem;
             margin-bottom: 1rem;
         }
 
+        .section-toggle {
+            background: none;
+            border: 0;
+            color: var(--bs-primary);
+            font-weight: 600;
+            font-size: 1.35rem;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.2s ease;
+        }
+
+        .section-toggle:hover {
+            color: var(--bs-primary-text-emphasis);
+        }
+
+        .section-toggle .chevron {
+            transition: transform 0.2s ease;
+        }
+
+        .section-toggle[aria-expanded="true"] .chevron {
+            transform: rotate(180deg);
+        }
+
         .dimmed {
             opacity: 0.1 !important;
-            transition: all 0.3s ease;
+            transition: opacity 0.3s ease;
         }
 
         .active-element {
@@ -260,8 +276,8 @@
         .active-label {
             opacity: 1 !important;
             font-weight: 700;
-            fill: #fff !important;
-            text-shadow: 0 0 4px #000;
+            fill: var(--viz-label-fill) !important;
+            text-shadow: var(--viz-label-shadow);
             z-index: 1001;
         }
 
@@ -271,17 +287,15 @@
             cursor: pointer;
             transition: opacity 0.3s, fill 0.2s, r 0.3s ease;
         }
-    </style>
-    <style>
-        /* Modern Slider Styling */
+
         .custom-range {
             -webkit-appearance: none;
             width: 100%;
             height: 8px;
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--bs-border-color);
             border-radius: 4px;
             outline: none;
-            transition: opacity .2s;
+            transition: opacity 0.2s;
         }
 
         .custom-range::-webkit-slider-thumb {
@@ -290,40 +304,59 @@
             width: 20px;
             height: 20px;
             border-radius: 50%;
-            background: var(--accent-blue);
+            background: var(--bs-primary);
             cursor: pointer;
-            box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
             border: 2px solid #fff;
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .form-range::-webkit-slider-thumb {
-            background: var(--accent-blue);
-            box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+            background: var(--bs-primary);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
         }
 
         .custom-range::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 0 15px rgba(33, 150, 243, 0.8);
+            transform: scale(1.1);
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
         }
     </style>
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg"
-        style="background: var(--bg-card); border-bottom: 1px solid var(--border-color);">
+    <nav class="navbar navbar-expand-lg bg-body-tertiary" data-bs-theme="dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#" style="color: var(--text-primary); font-weight: 700;">
-                <i class="bi bi-diagram-3"></i> Topicmodel Examples
-            </a>
+            <a class="navbar-brand" href="#">Topicmodel Examples</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <div class="ms-auto"></div>
+                <div class="nav-item dropdown ms-2" role="group" aria-label="Toggle dark mode" title="Toggle Dark Mode">
+                    <button class="dark-theme-toggle btn btn-outline-light dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false" aria-label="Toggle theme (auto)">
+                        <i class="bi bi-circle-half"></i> <span class="d-lg-none ms-2">Toggle theme</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button class="dropdown-item" data-bs-theme-value="light"><i
+                                    class="me-2 bi bi-sun-fill"></i> Light</button></li>
+                        <li><button class="dropdown-item" data-bs-theme-value="dark"><i
+                                    class="me-2 bi bi-moon-stars-fill"></i> Dark</button></li>
+                        <li><button class="dropdown-item" data-bs-theme-value="auto"><i
+                                    class="me-2 bi bi-circle-half"></i> Auto</button></li>
+                    </ul>
+                </div>
+            </div>
         </div>
     </nav>
 
     <div class="container-fluid px-4 mt-4">
         <div class="hero-section text-center">
             <h1 class="display-3 mb-3" style="font-weight: 800;">Topicmodel Examples</h1>
-            <h2 class="display-6 mb-4" style="color: var(--text-secondary);">K-Means vs Leiden Comparison</h2>
-            <p class="lead" style="max-width: 900px; margin: 0 auto; color: var(--text-secondary);">
+            <h2 class="display-6 mb-4 text-secondary">K-Means vs Leiden Comparison</h2>
+            <p class="lead text-secondary" style="max-width: 900px; margin: 0 auto;">
                 Explore how two powerful clustering algorithms handle different types of data.
                 K-Means clusters by <strong>geometric distance</strong> (position), while Leiden discovers groups based
                 on
@@ -331,103 +364,126 @@
             </p>
         </div>
 
-        <h3 class="section-title"><i class="bi bi-star-fill"></i> Documentation-Style Examples</h3>
-        <div class="row">
-            <div class="col-md-6">
-                <div class="dataset-card active" data-dataset="0">
-                    <h5><i class="bi bi-rocket-takeoff text-primary"></i> Discover Topics</h5>
-                    <p class="text-secondary mb-0">Auto-discover Space vs Food from docs.txt</p>
+        <div class="d-flex align-items-center justify-content-between section-title">
+            <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#docs-datasets"
+                aria-expanded="false" aria-controls="docs-datasets">
+                <i class="bi bi-star-fill"></i> Documentation-Style Examples <i class="bi bi-chevron-down chevron"></i>
+            </button>
+        </div>
+        <div class="collapse" id="docs-datasets">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="dataset-card active" data-dataset="0">
+                        <h5><i class="bi bi-rocket-takeoff text-primary"></i> Discover Topics</h5>
+                        <p class="text-secondary mb-0">Auto-discover Space vs Food from docs.txt</p>
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="dataset-card" data-dataset="1">
-                    <h5><i class="bi bi-journal-text text-warning"></i> Use Existing Topics</h5>
-                    <p class="text-secondary mb-0">Match docs to Astronomy vs Cooking</p>
+                <div class="col-md-6">
+                    <div class="dataset-card" data-dataset="1">
+                        <h5><i class="bi bi-journal-text text-warning"></i> Use Existing Topics</h5>
+                        <p class="text-secondary mb-0">Match docs to Astronomy vs Cooking</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <h3 class="section-title"><i class="bi bi-chat-quote-fill"></i> Text Clustering Examples (<100 docs)</h3>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="2">
-                            <h5><i class="bi bi-pc-display text-info"></i> Tech Support <span
-                                    class="badge bg-info">20</span></h5>
-                            <p class="text-secondary mb-0">Hardware vs Software tickets</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="3">
-                            <h5><i class="bi bi-newspaper text-warning"></i> News Headlines <span
-                                    class="badge bg-warning">30</span></h5>
-                            <p class="text-secondary mb-0">Sports vs Finance news</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="4">
-                            <h5><i class="bi bi-star-half text-success"></i> Customer Reviews <span
-                                    class="badge bg-success">30</span></h5>
-                            <p class="text-secondary mb-0">Positive vs Negative sentiment</p>
-                        </div>
+        <div class="d-flex align-items-center justify-content-between section-title">
+            <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#text-datasets"
+                aria-expanded="false" aria-controls="text-datasets">
+                <i class="bi bi-chat-quote-fill"></i> Text Clustering Examples (<100 docs) <i
+                    class="bi bi-chevron-down chevron"></i>
+            </button>
+        </div>
+        <div class="collapse" id="text-datasets">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="2">
+                        <h5><i class="bi bi-pc-display text-info"></i> Tech Support <span
+                                class="badge bg-info">20</span></h5>
+                        <p class="text-secondary mb-0">Hardware vs Software tickets</p>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="5">
-                            <h5><i class="bi bi-flask text-danger"></i> Science Abstracts <span
-                                    class="badge bg-danger">45</span></h5>
-                            <p class="text-secondary mb-0">Bio, Physics, Space</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="6">
-                            <h5><i class="bi bi-house-gear text-primary"></i> Smart Home <span
-                                    class="badge bg-primary">40</span></h5>
-                            <p class="text-secondary mb-0">IoT Device Commands</p>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="dataset-card" data-dataset="7">
-                            <h5><i class="bi bi-airplane-engines" style="color: #9c27b0;"></i> Travel Modes <span
-                                    class="badge bg-secondary">40</span></h5>
-                            <p class="text-secondary mb-0">Air, Rail, Road, Sea</p>
-                        </div>
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="3">
+                        <h5><i class="bi bi-newspaper text-warning"></i> News Headlines <span
+                                class="badge bg-warning">30</span></h5>
+                        <p class="text-secondary mb-0">Sports vs Finance news</p>
                     </div>
                 </div>
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="4">
+                        <h5><i class="bi bi-star-half text-success"></i> Customer Reviews <span
+                                class="badge bg-success">30</span></h5>
+                        <p class="text-secondary mb-0">Positive vs Negative sentiment</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="5">
+                        <h5><i class="bi bi-flask text-danger"></i> Science Abstracts <span
+                                class="badge bg-danger">45</span></h5>
+                        <p class="text-secondary mb-0">Bio, Physics, Space</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="6">
+                        <h5><i class="bi bi-house-gear text-primary"></i> Smart Home <span
+                                class="badge bg-primary">40</span></h5>
+                        <p class="text-secondary mb-0">IoT Device Commands</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="dataset-card" data-dataset="7">
+                        <h5><i class="bi bi-airplane-engines" style="color: #9c27b0;"></i> Travel Modes <span
+                                class="badge bg-secondary">40</span></h5>
+                        <p class="text-secondary mb-0">Air, Rail, Road, Sea</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                <h3 class="section-title"><i class="bi bi-layers-fill"></i> Large Scale (>100 docs)</h3>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="dataset-card" data-dataset="8">
-                            <h5><i class="bi bi-globe-americas" style="color: #e91e63;"></i> Global News Feed <span
-                                    class="badge bg-danger">150</span></h5>
-                            <p class="text-secondary mb-0">Politics, Tech, Sports, Entertainment, Health</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="dataset-card" data-dataset="9">
-                            <h5><i class="bi bi-map text-info"></i> Regional Briefs <span
-                                    class="badge bg-info">120</span></h5>
-                            <p class="text-secondary mb-0">6 categories, medium density</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="dataset-card" data-dataset="10">
-                            <h5><i class="bi bi-broadcast text-warning"></i> World Wire <span
-                                    class="badge bg-warning">180</span></h5>
-                            <p class="text-secondary mb-0">6 categories, heavy coverage</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="dataset-card" data-dataset="11">
-                            <h5><i class="bi bi-stack text-success"></i> Mega Stream <span
-                                    class="badge bg-success">240</span></h5>
-                            <p class="text-secondary mb-0">6 categories, massive volume</p>
-                        </div>
+        <div class="d-flex align-items-center justify-content-between section-title">
+            <button class="section-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#large-datasets"
+                aria-expanded="false" aria-controls="large-datasets">
+                <i class="bi bi-layers-fill"></i> Large Scale (>100 docs) <i
+                    class="bi bi-chevron-down chevron"></i>
+            </button>
+        </div>
+        <div class="collapse" id="large-datasets">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="dataset-card" data-dataset="8">
+                        <h5><i class="bi bi-globe-americas" style="color: #e91e63;"></i> Global News Feed <span
+                                class="badge bg-danger">150</span></h5>
+                        <p class="text-secondary mb-0">Politics, Tech, Sports, Entertainment, Health</p>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="dataset-card" data-dataset="9">
+                        <h5><i class="bi bi-map text-info"></i> Regional Briefs <span
+                                class="badge bg-info">120</span></h5>
+                        <p class="text-secondary mb-0">6 categories, medium density</p>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="dataset-card" data-dataset="10">
+                        <h5><i class="bi bi-broadcast text-warning"></i> World Wire <span
+                                class="badge bg-warning">180</span></h5>
+                        <p class="text-secondary mb-0">6 categories, heavy coverage</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="dataset-card" data-dataset="11">
+                        <h5><i class="bi bi-stack text-success"></i> Mega Stream <span
+                                class="badge bg-success">240</span></h5>
+                        <p class="text-secondary mb-0">6 categories, massive volume</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
 
                 <div class="row mt-4">
@@ -445,6 +501,9 @@
                                 <span class="text-secondary">Dense</span>
                                 <span class="badge bg-primary" id="slider-value">0</span>
                             </div>
+                            <button class="btn btn-outline-primary ms-3" id="toggle-broken-only" type="button">
+                                <i class="bi bi-exclamation-triangle"></i> Show only broken links
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -506,6 +565,7 @@
     </div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@gramex/ui@0.3.1/dist/dark-theme.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
     <script src="comparison.js"></script>
 </body>
