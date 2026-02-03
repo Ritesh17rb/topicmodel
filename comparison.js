@@ -565,9 +565,12 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
         .scaleExtent([0.1, 8])
         .on('zoom', (event) => {
             svgGroup.attr('transform', event.transform);
+            if (window.vizSync && window.vizSync[containerId]) {
+                window.vizSync[containerId].transform = event.transform;
+            }
 
             // Synchronized Zoom
-            if (event.sourceEvent) {
+            if (event.sourceEvent && window.syncViews === true) {
                 const otherId = containerId === 'kmeans-viz' ? 'leiden-viz' : 'kmeans-viz';
                 if (window.vizSync && window.vizSync[otherId]) {
                     const { svg: otherSvg, zoom: otherZoom } = window.vizSync[otherId];
@@ -588,11 +591,6 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
         .attr('preserveAspectRatio', 'xMidYMid meet')
         .call(zoom)
         .on('dblclick.zoom', null);
-
-    // Update global sync object with actual zoom behavior
-    if (window.vizSync && window.vizSync[containerId]) {
-        window.vizSync[containerId].zoom = zoom;
-    }
 
     const svgGroup = svg.append('g');
 
@@ -628,9 +626,20 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
     const nodeGroup = svgGroup.append('g').attr('class', 'nodes');
     const labelGroup = svgGroup.append('g').attr('class', 'labels');
 
-    // Register for Sync
+    // Register for Sync (preserve existing transform and selection when re-rendering)
     if (!window.vizSync) window.vizSync = {};
-    window.vizSync[containerId] = { svg, zoom: null };
+    const existingTransform = window.vizSync[containerId]?.transform || null;
+    const existingPinned = window.vizSync[containerId]?.pinnedNodeId || null;
+    window.vizSync[containerId] = {
+        svg,
+        zoom,
+        transform: existingTransform,
+        pinnedNodeId: existingPinned,
+        highlightNode: null
+    };
+    if (window.syncViews === true) {
+        applyStoredSyncTransform();
+    }
 
     // Simulation uses SHARED PHYSICS parameters
     const simulation = d3.forceSimulation(nodes)
@@ -654,7 +663,7 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
         .attr('stroke-width', d => Math.sqrt(d.value) * linkWidthScale)
         .attr('stroke-opacity', linkOpacity);
 
-    const showBrokenOnly = window.showBrokenOnly === true;
+    const showBrokenOnly = window.showBrokenOnlyByViz?.[containerId] === true;
     const brokenDash = showBrokenOnly ? null : '2 5';
 
     // Bad Links (cross-cluster, strong connections)
@@ -669,52 +678,102 @@ function visualize(containerId, data, clusters, colors, algorithmName, preComput
 
     link.style('display', showBrokenOnly ? 'none' : null);
 
+    let pinnedNodeId = window.vizSync[containerId].pinnedNodeId;
+    const applyHighlight = (nodeId) => {
+        const connectedNodeIds = new Set();
+        connectedNodeIds.add(nodeId);
+
+        // Find neighbors
+        links.forEach(l => {
+            if (l.source.id === nodeId) connectedNodeIds.add(l.target.id);
+            if (l.target.id === nodeId) connectedNodeIds.add(l.source.id);
+        });
+
+        // Dim others
+        nodeGroup.selectAll('.node').classed('dimmed', n => !connectedNodeIds.has(n.id));
+        linkGroup.selectAll('line').classed('dimmed', l => l.source.id !== nodeId && l.target.id !== nodeId);
+        badLinkGroup.selectAll('line').classed('dimmed', l => l.source.id !== nodeId && l.target.id !== nodeId);
+
+        // Highlight neighbors and self
+        nodeGroup.selectAll('.node')
+            .filter(n => connectedNodeIds.has(n.id))
+            .classed('active-element', true);
+
+        linkGroup.selectAll('line')
+            .filter(l => l.source.id === nodeId || l.target.id === nodeId)
+            .classed('active-element', true);
+
+        badLinkGroup.selectAll('line')
+            .filter(l => l.source.id === nodeId || l.target.id === nodeId)
+            .classed('active-element', true);
+
+        // Labels (Show neighbors, dim others but keep slightly visible)
+        labelGroup.selectAll('text')
+            .classed('active-label', n => connectedNodeIds.has(n.id))
+            .style('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+    };
+
+    const clearHighlight = () => {
+        svgGroup.selectAll('.dimmed').classed('dimmed', false);
+        svgGroup.selectAll('.active-element').classed('active-element', false);
+        labelGroup.selectAll('.active-label').classed('active-label', false);
+        labelGroup.selectAll('text').style('opacity', 1);
+    };
+
+    window.vizSync[containerId].highlightNode = (nodeId) => {
+        pinnedNodeId = nodeId || null;
+        window.vizSync[containerId].pinnedNodeId = pinnedNodeId;
+        if (pinnedNodeId) applyHighlight(pinnedNodeId);
+        else clearHighlight();
+    };
+
+    if (pinnedNodeId) {
+        applyHighlight(pinnedNodeId);
+    }
+
     // Nodes - with hover interaction
     const node = nodeGroup.selectAll('.node')
         .data(nodes)
         .join('g')
         .attr('class', 'node')
         .on('mouseover', function (event, d) {
-            const connectedNodeIds = new Set();
-            connectedNodeIds.add(d.id);
-
-            // Find neighbors
-            links.forEach(l => {
-                if (l.source.id === d.id) connectedNodeIds.add(l.target.id);
-                if (l.target.id === d.id) connectedNodeIds.add(l.source.id);
-            });
-
-            // Dim others
-            nodeGroup.selectAll('.node').classed('dimmed', n => !connectedNodeIds.has(n.id));
-            linkGroup.selectAll('line').classed('dimmed', l => l.source.id !== d.id && l.target.id !== d.id);
-            badLinkGroup.selectAll('line').classed('dimmed', l => l.source.id !== d.id && l.target.id !== d.id);
-
-            // Highlight neighbors and self
-            nodeGroup.selectAll('.node')
-                .filter(n => connectedNodeIds.has(n.id))
-                .classed('active-element', true);
-
-            linkGroup.selectAll('line')
-                .filter(l => l.source.id === d.id || l.target.id === d.id)
-                .classed('active-element', true);
-
-            badLinkGroup.selectAll('line')
-                .filter(l => l.source.id === d.id || l.target.id === d.id)
-                .classed('active-element', true);
-
-            // Labels (Show neighbors, dim others but keep slightly visible)
-            labelGroup.selectAll('text')
-                .classed('active-label', n => connectedNodeIds.has(n.id))
-                .style('opacity', n => connectedNodeIds.has(n.id) ? 1 : 0.2);
+            if (pinnedNodeId) return;
+            applyHighlight(d.id);
         })
         .on('mouseout', function () {
-            svgGroup.selectAll('.dimmed').classed('dimmed', false);
-            svgGroup.selectAll('.active-element').classed('active-element', false);
-            labelGroup.selectAll('.active-label').classed('active-label', false);
-            // Reset Label Opacity (Keep visible)
-            labelGroup.selectAll('text').style('opacity', 1);
+            if (pinnedNodeId) return;
+            clearHighlight();
+        })
+        .on('click', function (event, d) {
+            event.stopPropagation();
+            pinnedNodeId = pinnedNodeId === d.id ? null : d.id;
+            window.vizSync[containerId].pinnedNodeId = pinnedNodeId;
+            if (pinnedNodeId) applyHighlight(pinnedNodeId);
+            else clearHighlight();
+
+            if (window.syncViews === true) {
+                const otherId = containerId === 'kmeans-viz' ? 'leiden-viz' : 'kmeans-viz';
+                const other = window.vizSync && window.vizSync[otherId];
+                if (other && typeof other.highlightNode === 'function') {
+                    other.highlightNode(pinnedNodeId);
+                }
+            }
         })
         .call(drag(simulation));
+
+    svg.on('click', () => {
+        if (!pinnedNodeId) return;
+        pinnedNodeId = null;
+        window.vizSync[containerId].pinnedNodeId = null;
+        clearHighlight();
+        if (window.syncViews === true) {
+            const otherId = containerId === 'kmeans-viz' ? 'leiden-viz' : 'kmeans-viz';
+            const other = window.vizSync && window.vizSync[otherId];
+            if (other && typeof other.highlightNode === 'function') {
+                other.highlightNode(null);
+            }
+        }
+    });
 
     node.append('circle')
         .attr('r', nodeRadius)
@@ -984,15 +1043,36 @@ function runComparison() {
     if (interpEl) interpEl.innerHTML = interpretation;
 }
 
-function updateBrokenToggleButton() {
-    const button = document.getElementById('toggle-broken-only');
+function updateBrokenToggleButton(buttonId, active) {
+    const button = document.getElementById(buttonId);
     if (!button) return;
-    const active = window.showBrokenOnly === true;
     button.classList.toggle('btn-primary', active);
     button.classList.toggle('btn-outline-primary', !active);
     button.innerHTML = active
         ? '<i class="bi bi-exclamation-triangle"></i> Showing broken links'
         : '<i class="bi bi-exclamation-triangle"></i> Show only broken links';
+}
+
+function updateSyncToggleButton() {
+    const button = document.getElementById('toggle-sync-views');
+    if (!button) return;
+    const active = window.syncViews === true;
+    button.classList.toggle('btn-secondary', active);
+    button.classList.toggle('btn-outline-secondary', !active);
+    button.innerHTML = active
+        ? '<i class="bi bi-link-45deg"></i> Sync on'
+        : '<i class="bi bi-link-45deg"></i> Sync views';
+}
+
+function applyStoredSyncTransform() {
+    if (!window.vizSync) return;
+    const km = window.vizSync['kmeans-viz'];
+    const ld = window.vizSync['leiden-viz'];
+    if (!km || !ld || !km.svg || !ld.svg || !km.zoom || !ld.zoom) return;
+    const source = km.transform ? km : ld.transform ? ld : null;
+    if (!source) return;
+    const target = source === km ? ld : km;
+    target.svg.call(target.zoom.transform, source.transform);
 }
 
 // Event Listeners
@@ -1013,14 +1093,40 @@ if (slider) {
     });
 }
 
-const brokenToggle = document.getElementById('toggle-broken-only');
-if (brokenToggle) {
-    if (window.showBrokenOnly === undefined) window.showBrokenOnly = false;
-    updateBrokenToggleButton();
-    brokenToggle.addEventListener('click', () => {
-        window.showBrokenOnly = !window.showBrokenOnly;
-        updateBrokenToggleButton();
+const brokenToggleKmeans = document.getElementById('toggle-broken-only-kmeans');
+const brokenToggleLeiden = document.getElementById('toggle-broken-only-leiden');
+if (!window.showBrokenOnlyByViz) {
+    window.showBrokenOnlyByViz = { 'kmeans-viz': false, 'leiden-viz': false };
+}
+updateBrokenToggleButton('toggle-broken-only-kmeans', window.showBrokenOnlyByViz['kmeans-viz'] === true);
+updateBrokenToggleButton('toggle-broken-only-leiden', window.showBrokenOnlyByViz['leiden-viz'] === true);
+
+if (brokenToggleKmeans) {
+    brokenToggleKmeans.addEventListener('click', () => {
+        window.showBrokenOnlyByViz['kmeans-viz'] = !window.showBrokenOnlyByViz['kmeans-viz'];
+        updateBrokenToggleButton('toggle-broken-only-kmeans', window.showBrokenOnlyByViz['kmeans-viz'] === true);
         runComparison();
+    });
+}
+
+if (brokenToggleLeiden) {
+    brokenToggleLeiden.addEventListener('click', () => {
+        window.showBrokenOnlyByViz['leiden-viz'] = !window.showBrokenOnlyByViz['leiden-viz'];
+        updateBrokenToggleButton('toggle-broken-only-leiden', window.showBrokenOnlyByViz['leiden-viz'] === true);
+        runComparison();
+    });
+}
+
+const syncToggle = document.getElementById('toggle-sync-views');
+if (syncToggle) {
+    if (window.syncViews === undefined) window.syncViews = false;
+    updateSyncToggleButton();
+    syncToggle.addEventListener('click', () => {
+        window.syncViews = !window.syncViews;
+        updateSyncToggleButton();
+        if (window.syncViews === true) {
+            applyStoredSyncTransform();
+        }
     });
 }
 

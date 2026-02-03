@@ -501,8 +501,8 @@
                                 <span class="text-secondary">Dense</span>
                                 <span class="badge bg-primary" id="slider-value">0</span>
                             </div>
-                            <button class="btn btn-outline-primary ms-3" id="toggle-broken-only" type="button">
-                                <i class="bi bi-exclamation-triangle"></i> Show only broken links
+                            <button class="btn btn-outline-secondary ms-3" id="toggle-sync-views" type="button">
+                                <i class="bi bi-link-45deg"></i> Sync views
                             </button>
                         </div>
                     </div>
@@ -513,9 +513,14 @@
                         <div class="viz-container" id="kmeans-panel">
                             <div class="viz-header">
                                 <h4 class="mb-0"><i class="bi bi-grid-3x3"></i> K-Means Clustering</h4>
-                                <button class="fullscreen-btn" data-fullscreen-target="kmeans-panel">
-                                    <i class="bi bi-arrows-fullscreen"></i> Full screen
-                                </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-outline-primary btn-sm" id="toggle-broken-only-kmeans" type="button">
+                                        <i class="bi bi-exclamation-triangle"></i> Show only broken links
+                                    </button>
+                                    <button class="fullscreen-btn" data-fullscreen-target="kmeans-panel">
+                                        <i class="bi bi-arrows-fullscreen"></i> Full screen
+                                    </button>
+                                </div>
                             </div>
                             <div class="svg-container" id="kmeans-viz"></div>
                             <div class="mt-3" id="kmeans-legend"></div>
@@ -525,9 +530,14 @@
                         <div class="viz-container" id="leiden-panel">
                             <div class="viz-header">
                                 <h4 class="mb-0"><i class="bi bi-diagram-3"></i> Leiden Algorithm</h4>
-                                <button class="fullscreen-btn" data-fullscreen-target="leiden-panel">
-                                    <i class="bi bi-arrows-fullscreen"></i> Full screen
-                                </button>
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-outline-primary btn-sm" id="toggle-broken-only-leiden" type="button">
+                                        <i class="bi bi-exclamation-triangle"></i> Show only broken links
+                                    </button>
+                                    <button class="fullscreen-btn" data-fullscreen-target="leiden-panel">
+                                        <i class="bi bi-arrows-fullscreen"></i> Full screen
+                                    </button>
+                                </div>
                             </div>
                             <div class="svg-container" id="leiden-viz"></div>
                             <div class="mt-3" id="leiden-legend"></div>
@@ -557,11 +567,6 @@
                     <p id="interpretation-text">Select a dataset to see the comparison...</p>
                 </div>
 
-                <div class="text-center my-5">
-                    <button class="btn btn-primary" onclick="runComparison()">
-                        <i class="bi bi-arrow-repeat"></i> Run Comparison Again
-                    </button>
-                </div>
     </div>
 
     <script src="https://d3js.org/d3.v7.min.js"></script>
